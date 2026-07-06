@@ -1443,28 +1443,6 @@ if odor_result.get("success"):
                 """,
                 unsafe_allow_html=True
             )
-            c1, c2, c3 = st.columns(3)
-
-            with c1:
-                value = latest.get("NH₃")
-                st.metric(
-                    "NH₃",
-                    "자료없음" if pd.isna(value) else f"{value:.3f} ppm"
-                )
-
-            with c2:
-                value = latest.get("H₂S")
-                st.metric(
-                    "H₂S",
-                    "자료없음" if pd.isna(value) else f"{value:.3f} ppm"
-                )
-
-            with c3:
-                value = latest.get("TVOC")
-                st.metric(
-                    "TVOC",
-                    "자료없음" if pd.isna(value) else f"{value:.3f} ppm"
-                )
 
             st.caption(f"최신 측정시각: {latest.get('시각')}")
 
