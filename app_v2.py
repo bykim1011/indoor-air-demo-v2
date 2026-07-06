@@ -1357,7 +1357,7 @@ st.markdown(
 
 odor_result = fetch_seogu_odor_chartdata()
 
-st.markdown("### 대구 서구 자체 악취측정망")
+st.markdown("### 대구 서구 악취측정망")
 
 if odor_result.get("success"):
     odor_df = odor_result.get("data", pd.DataFrame())
