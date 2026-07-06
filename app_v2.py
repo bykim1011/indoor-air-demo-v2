@@ -1380,9 +1380,69 @@ if odor_result.get("success"):
             st.caption(
                 "측정지점: 다이텍연구원 B동 옥상 · "
                 "측정주기: 1시간 · "
-                "단위: ppm · "
+                "단위: ppm "
             )
-
+            def format_odor_value(value):
+                if pd.isna(value):
+                    return "자료없음"
+                return f"{value:.3f} ppm"
+            
+            
+            nh3_value = latest.get("NH₃")
+            h2s_value = latest.get("H₂S")
+            tvoc_value = latest.get("TVOC")
+            
+            st.markdown(
+                f"""
+                <div style="
+                    display:grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 18px;
+                    margin-top: 14px;
+                    margin-bottom: 10px;
+                ">
+                    <div style="
+                        background:white;
+                        border:1px solid #E5E7EB;
+                        border-radius:18px;
+                        padding:22px 26px;
+                        box-shadow:0 3px 10px rgba(0,0,0,0.06);
+                        text-align:center;
+                    ">
+                        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">NH₃</div>
+                        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(nh3_value)}</div>
+                        <div style="font-size:15px; color:#6B7280; margin-top:6px;">암모니아</div>
+                    </div>
+            
+                    <div style="
+                        background:white;
+                        border:1px solid #E5E7EB;
+                        border-radius:18px;
+                        padding:22px 26px;
+                        box-shadow:0 3px 10px rgba(0,0,0,0.06);
+                        text-align:center;
+                    ">
+                        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">H₂S</div>
+                        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(h2s_value)}</div>
+                        <div style="font-size:15px; color:#6B7280; margin-top:6px;">황화수소</div>
+                    </div>
+            
+                    <div style="
+                        background:white;
+                        border:1px solid #E5E7EB;
+                        border-radius:18px;
+                        padding:22px 26px;
+                        box-shadow:0 3px 10px rgba(0,0,0,0.06);
+                        text-align:center;
+                    ">
+                        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">TVOC</div>
+                        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(tvoc_value)}</div>
+                        <div style="font-size:15px; color:#6B7280; margin-top:6px;">총휘발성유기화합물</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
             c1, c2, c3 = st.columns(3)
 
             with c1:
