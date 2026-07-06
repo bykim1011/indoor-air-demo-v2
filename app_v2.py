@@ -1355,16 +1355,9 @@ st.markdown(
 # 9-1. 대구 서구 자체 악취측정망
 # ============================================================
 
-st.markdown(
-    """
-    <div class="scale-wrap">
-        <div class="scale-title">대구 서구 자체 악취측정망</div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
 odor_result = fetch_seogu_odor_chartdata()
+
+st.markdown("### 대구 서구 자체 악취측정망")
 
 if odor_result.get("success"):
     odor_df = odor_result.get("data", pd.DataFrame())
@@ -1416,10 +1409,20 @@ if odor_result.get("success"):
 
             st.caption(f"최신 측정시각: {latest.get('시각')}")
 
-            chart_df = odor_df.set_index("시각")[odor_cols]
-            st.line_chart(chart_df)
+            with st.expander("당일 시간대별 악취측정 추이", expanded=False):
+                if "NH₃" in odor_df.columns and "H₂S" in odor_df.columns:
+                    st.markdown("#### NH₃ / H₂S")
+                    st.line_chart(
+                        odor_df.set_index("시각")[["NH₃", "H₂S"]]
+                    )
 
-            with st.expander("시간대별 악취측정 자료"):
+                if "TVOC" in odor_df.columns:
+                    st.markdown("#### TVOC")
+                    st.line_chart(
+                        odor_df.set_index("시각")[["TVOC"]]
+                    )
+
+            with st.expander("시간대별 악취측정 자료", expanded=False):
                 show_df = odor_df[["시각"] + odor_cols].copy()
 
                 for col in odor_cols:
@@ -1434,8 +1437,6 @@ if odor_result.get("success"):
 else:
     st.warning("대구 서구 자체 악취측정망 자료를 불러오지 못했습니다.")
     st.write(odor_result.get("error"))
-
-
 # ============================================================
 # 10. 등급표
 # ============================================================
