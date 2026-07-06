@@ -1435,19 +1435,6 @@ if odor_result.get("success"):
 
             st.caption(f"최신 측정시각: {latest.get('시각')}")
 
-            with st.expander("당일 시간대별 악취측정 추이", expanded=False):
-                if "NH₃" in odor_df.columns and "H₂S" in odor_df.columns:
-                    st.markdown("#### NH₃ / H₂S")
-                    st.line_chart(
-                        odor_df.set_index("시각")[["NH₃", "H₂S"]]
-                    )
-
-                if "TVOC" in odor_df.columns:
-                    st.markdown("#### TVOC")
-                    st.line_chart(
-                        odor_df.set_index("시각")[["TVOC"]]
-                    )
-
             with st.expander("시간대별 악취측정 자료", expanded=False):
                 show_df = odor_df[["시각"] + odor_cols].copy()
 
