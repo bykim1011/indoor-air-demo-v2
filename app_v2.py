@@ -1379,9 +1379,8 @@ if odor_result.get("success"):
 
             st.caption(
                 "측정지점: 다이텍연구원 B동 옥상 · "
-                "측정주기: 1시간 단위 · "
+                "측정주기: 1시간 · "
                 "단위: ppm · "
-                "센서법 기반 참고자료"
             )
 
             c1, c2, c3 = st.columns(3)
