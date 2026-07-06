@@ -19,6 +19,7 @@ Created on Tue Jun 23 10:11:52 2026
 # 6. 이용자 반응 버튼 저장
 # 7. 향후 AirKorea API / 실내 간이측정기 연동 가능 구조
 # ------------------------------------------------------------
+import textwrap
 from bs4 import BeautifulSoup
 import streamlit as st
 import pandas as pd
@@ -26,7 +27,6 @@ import requests
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import math
-
 # ============================================================
 # 1. 기본 설정
 # ============================================================
@@ -1364,6 +1364,7 @@ if odor_result.get("success"):
 
     if odor_df.empty:
         st.info("다이텍연구원 B동 옥상 악취측정값이 아직 없습니다.")
+
     else:
         odor_cols = [
             col for col in ["NH₃", "H₂S", "TVOC"]
@@ -1374,73 +1375,51 @@ if odor_result.get("success"):
 
         if valid_df.empty:
             st.info("오늘 조회된 악취측정값 중 유효한 값이 없습니다.")
+
         else:
             latest = valid_df.iloc[-1]
 
             st.caption(
                 "측정지점: 다이텍연구원 B동 옥상 · "
                 "측정주기: 1시간 · "
-                "단위: ppm "
+                "단위: ppm"
             )
+
             def format_odor_value(value):
                 if pd.isna(value):
                     return "자료없음"
                 return f"{value:.3f} ppm"
-            
-            
+
             nh3_value = latest.get("NH₃")
             h2s_value = latest.get("H₂S")
             tvoc_value = latest.get("TVOC")
-            
+
+            odor_card_html = f"""
+<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:18px; margin-top:14px; margin-bottom:10px;">
+
+    <div style="background:white; border:1px solid #E5E7EB; border-radius:18px; padding:22px 26px; box-shadow:0 3px 10px rgba(0,0,0,0.06); text-align:center;">
+        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">NH₃</div>
+        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(nh3_value)}</div>
+        <div style="font-size:15px; color:#6B7280; margin-top:6px;">암모니아</div>
+    </div>
+
+    <div style="background:white; border:1px solid #E5E7EB; border-radius:18px; padding:22px 26px; box-shadow:0 3px 10px rgba(0,0,0,0.06); text-align:center;">
+        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">H₂S</div>
+        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(h2s_value)}</div>
+        <div style="font-size:15px; color:#6B7280; margin-top:6px;">황화수소</div>
+    </div>
+
+    <div style="background:white; border:1px solid #E5E7EB; border-radius:18px; padding:22px 26px; box-shadow:0 3px 10px rgba(0,0,0,0.06); text-align:center;">
+        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">TVOC</div>
+        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(tvoc_value)}</div>
+        <div style="font-size:15px; color:#6B7280; margin-top:6px;">총휘발성유기화합물</div>
+    </div>
+
+</div>
+"""
+
             st.markdown(
-                f"""
-                <div style="
-                    display:grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 18px;
-                    margin-top: 14px;
-                    margin-bottom: 10px;
-                ">
-                    <div style="
-                        background:white;
-                        border:1px solid #E5E7EB;
-                        border-radius:18px;
-                        padding:22px 26px;
-                        box-shadow:0 3px 10px rgba(0,0,0,0.06);
-                        text-align:center;
-                    ">
-                        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">NH₃</div>
-                        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(nh3_value)}</div>
-                        <div style="font-size:15px; color:#6B7280; margin-top:6px;">암모니아</div>
-                    </div>
-            
-                    <div style="
-                        background:white;
-                        border:1px solid #E5E7EB;
-                        border-radius:18px;
-                        padding:22px 26px;
-                        box-shadow:0 3px 10px rgba(0,0,0,0.06);
-                        text-align:center;
-                    ">
-                        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">H₂S</div>
-                        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(h2s_value)}</div>
-                        <div style="font-size:15px; color:#6B7280; margin-top:6px;">황화수소</div>
-                    </div>
-            
-                    <div style="
-                        background:white;
-                        border:1px solid #E5E7EB;
-                        border-radius:18px;
-                        padding:22px 26px;
-                        box-shadow:0 3px 10px rgba(0,0,0,0.06);
-                        text-align:center;
-                    ">
-                        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">TVOC</div>
-                        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(tvoc_value)}</div>
-                        <div style="font-size:15px; color:#6B7280; margin-top:6px;">총휘발성유기화합물</div>
-                    </div>
-                </div>
-                """,
+                textwrap.dedent(odor_card_html),
                 unsafe_allow_html=True
             )
 
