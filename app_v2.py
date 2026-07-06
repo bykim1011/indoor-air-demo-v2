@@ -1390,38 +1390,48 @@ if odor_result.get("success"):
                     return "자료없음"
                 return f"{value:.3f} ppm"
 
-            nh3_value = latest.get("NH₃")
-            h2s_value = latest.get("H₂S")
-            tvoc_value = latest.get("TVOC")
+            def render_odor_card(label, value, desc):
+                card_html = (
+                    "<div style='"
+                    "background:white;"
+                    "border:1px solid #E5E7EB;"
+                    "border-radius:18px;"
+                    "padding:22px 26px;"
+                    "box-shadow:0 3px 10px rgba(0,0,0,0.06);"
+                    "text-align:center;"
+                    "margin-top:10px;"
+                    "margin-bottom:10px;"
+                    "'>"
+                    f"<div style='font-size:28px; font-weight:900; color:#374151; margin-bottom:8px;'>{label}</div>"
+                    f"<div style='font-size:40px; font-weight:900; color:#111827;'>{format_odor_value(value)}</div>"
+                    f"<div style='font-size:17px; color:#6B7280; margin-top:8px;'>{desc}</div>"
+                    "</div>"
+                )
 
-            odor_card_html = f"""
-<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:18px; margin-top:14px; margin-bottom:10px;">
+                st.markdown(card_html, unsafe_allow_html=True)
 
-    <div style="background:white; border:1px solid #E5E7EB; border-radius:18px; padding:22px 26px; box-shadow:0 3px 10px rgba(0,0,0,0.06); text-align:center;">
-        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">NH₃</div>
-        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(nh3_value)}</div>
-        <div style="font-size:15px; color:#6B7280; margin-top:6px;">암모니아</div>
-    </div>
+            c1, c2, c3 = st.columns(3)
 
-    <div style="background:white; border:1px solid #E5E7EB; border-radius:18px; padding:22px 26px; box-shadow:0 3px 10px rgba(0,0,0,0.06); text-align:center;">
-        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">H₂S</div>
-        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(h2s_value)}</div>
-        <div style="font-size:15px; color:#6B7280; margin-top:6px;">황화수소</div>
-    </div>
+            with c1:
+                render_odor_card(
+                    "NH₃",
+                    latest.get("NH₃"),
+                    "암모니아"
+                )
 
-    <div style="background:white; border:1px solid #E5E7EB; border-radius:18px; padding:22px 26px; box-shadow:0 3px 10px rgba(0,0,0,0.06); text-align:center;">
-        <div style="font-size:26px; font-weight:900; color:#374151; margin-bottom:8px;">TVOC</div>
-        <div style="font-size:38px; font-weight:900; color:#111827;">{format_odor_value(tvoc_value)}</div>
-        <div style="font-size:15px; color:#6B7280; margin-top:6px;">총휘발성유기화합물</div>
-    </div>
+            with c2:
+                render_odor_card(
+                    "H₂S",
+                    latest.get("H₂S"),
+                    "황화수소"
+                )
 
-</div>
-"""
-
-            st.markdown(
-                textwrap.dedent(odor_card_html),
-                unsafe_allow_html=True
-            )
+            with c3:
+                render_odor_card(
+                    "TVOC",
+                    latest.get("TVOC"),
+                    "총휘발성유기화합물"
+                )
 
             st.caption(f"최신 측정시각: {latest.get('시각')}")
 
