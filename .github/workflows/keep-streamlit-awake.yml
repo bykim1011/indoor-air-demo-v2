@@ -10,7 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ping Streamlit app
+      - name: Ping Streamlit health endpoint
         run: |
-          curl -L --fail --max-time 60 \
-          "https://indoor-air-demo-v2.streamlit.app/"
+          curl --fail \
+               --max-time 60 \
+               --retry 3 \
+               --user-agent "Mozilla/5.0" \
+               "https://indoor-air-demo-v2.streamlit.app/_stcore/health"
