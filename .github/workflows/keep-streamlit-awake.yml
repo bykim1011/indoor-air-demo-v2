@@ -2,18 +2,56 @@ name: Keep Streamlit App Awake
 
 on:
   schedule:
+    # 6시간마다 실행
     - cron: "0 */6 * * *"
   workflow_dispatch:
 
 jobs:
-  ping:
+  wake-streamlit:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ping Streamlit health endpoint
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Playwright
         run: |
-          curl --fail \
-               --max-time 60 \
-               --retry 3 \
-               --user-agent "Mozilla/5.0" \
-               "https://indoor-air-demo-v2.streamlit.app/_stcore/health"
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Open app and wake it if sleeping
+        run: |
+          python - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import time
+
+          APP_URL = "https://indoor-air-demo-v2.streamlit.app/"
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              page = browser.new_page()
+
+              print("Opening:", APP_URL)
+              page.goto(APP_URL, wait_until="domcontentloaded", timeout=120000)
+              time.sleep(5)
+
+              wake_button = page.get_by_text(
+                  "Yes, get this app back up!",
+                  exact=True
+              )
+
+              if wake_button.count() > 0 and wake_button.is_visible():
+                  print("Sleeping page detected. Clicking wake button.")
+                  wake_button.click()
+                  page.wait_for_timeout(30000)
+                  print("Wake-up request completed.")
+              else:
+                  print("App is already awake.")
+
+              print("Final URL:", page.url)
+              print("Page title:", page.title())
+
+              browser.close()
+          PY
