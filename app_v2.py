@@ -40,6 +40,11 @@ st.set_page_config(
 
 KST = timezone(timedelta(hours=9))
 
+# 자료 신선도 판정 기준
+ARIM_STALE_MINUTES = 10
+AIRKOREA_STALE_MINUTES = 180
+KMA_STALE_MINUTES = 120
+
 DATA_DIR = Path("data")
 DATA_DIR.mkdir(exist_ok=True)
 
@@ -158,6 +163,40 @@ def get_kst_now():
     return datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def parse_kst_datetime(value, formats=None):
+    """문자열/타임스탬프를 KST datetime으로 변환한다."""
+    if value in (None, "", "자료없음"):
+        return None
+
+    try:
+        ts = pd.to_datetime(value, errors="coerce")
+        if pd.isna(ts):
+            return None
+
+        if ts.tzinfo is None:
+            ts = ts.tz_localize("Asia/Seoul")
+        else:
+            ts = ts.tz_convert("Asia/Seoul")
+
+        return ts.to_pydatetime()
+    except Exception:
+        return None
+
+
+def get_data_age_minutes(measured_at):
+    """측정시각으로부터 현재까지 지난 분 수를 계산한다."""
+    if measured_at is None:
+        return None
+
+    age = datetime.now(KST) - measured_at
+    return max(0.0, age.total_seconds() / 60.0)
+
+
+def is_fresh_data(measured_at, stale_minutes):
+    age_minutes = get_data_age_minutes(measured_at)
+    return age_minutes is not None and age_minutes <= stale_minutes, age_minutes
+
+
 # ============================================================
 # 아림 OA200 실내 측정기 실시간 연동
 # ============================================================
@@ -244,6 +283,17 @@ def fetch_arim_dyetec_1():
                     else:
                         measured_at_kst = "자료없음"
 
+                    measured_at_dt = parse_kst_datetime(last_update_raw)
+                    fresh, age_minutes = is_fresh_data(
+                        measured_at_dt, ARIM_STALE_MINUTES
+                    )
+
+                    sensor_state = record.get("sensor_state", "자료없음")
+                    network_state = record.get("network_state", "자료없음")
+                    state_ok = (
+                        sensor_state == "정상" and network_state == "정상"
+                    )
+
                     return {
                         "success": True,
                         "id": record.get("id"),
@@ -254,8 +304,12 @@ def fetch_arim_dyetec_1():
                         "humi": pd.to_numeric(record.get("humi"), errors="coerce"),
                         "voc": pd.to_numeric(record.get("voc"), errors="coerce"),
                         "measured_at_kst": measured_at_kst,
-                        "sensor_state": record.get("sensor_state", "자료없음"),
-                        "network_state": record.get("network_state", "자료없음"),
+                        "measured_at_dt": measured_at_dt,
+                        "age_minutes": age_minutes,
+                        "fresh": fresh,
+                        "state_ok": state_ok,
+                        "sensor_state": sensor_state,
+                        "network_state": network_state,
                     }
 
             return {
@@ -333,10 +387,19 @@ def fetch_airkorea_realtime(station_name):
         def to_number(value):
             return pd.to_numeric(value, errors="coerce")
 
+        data_time = item.get("dataTime")
+        measured_at_dt = parse_kst_datetime(data_time)
+        fresh, age_minutes = is_fresh_data(
+            measured_at_dt, AIRKOREA_STALE_MINUTES
+        )
+
         return {
             "success": True,
             "station": station_name,
-            "data_time": item.get("dataTime"),
+            "data_time": data_time,
+            "measured_at_dt": measured_at_dt,
+            "age_minutes": age_minutes,
+            "fresh": fresh,
             "pm10": to_number(item.get("pm10Value")),
             "pm25": to_number(item.get("pm25Value")),
             "o3": to_number(item.get("o3Value")),
@@ -377,13 +440,18 @@ def fetch_airkorea_realtime_with_fallback(preferred_station, station_candidates)
             has_pm25 = not pd.isna(pm25)
             has_pm10 = not pd.isna(pm10)
 
-            if has_pm25 or has_pm10:
+            if (has_pm25 or has_pm10) and result.get("fresh"):
                 result["fallback_used"] = station != preferred_station
                 result["preferred_station"] = preferred_station
                 result["station"] = station
                 return result
 
-            errors.append(f"{station}: PM 자료 없음")
+            if not result.get("fresh"):
+                age = result.get("age_minutes")
+                age_text = "시각 확인 불가" if age is None else f"{age:.0f}분 경과"
+                errors.append(f"{station}: 오래된 자료({age_text})")
+            else:
+                errors.append(f"{station}: PM 자료 없음")
         else:
             errors.append(f"{station}: {result.get('error')}")
 
@@ -675,6 +743,16 @@ def fetch_kma_ultra_short_nowcast(nx=89, ny=90):
         result["WSD_text"] = f"{result.get('WSD', '자료없음')} m/s"
         result["PTY_text"] = pty_map.get(str(result.get("PTY", "")), "자료없음")
         result["RN1_text"] = f"{result.get('RN1', '0')} mm"
+
+        measured_at_dt = parse_kst_datetime(
+            f"{base_date} {base_time}",
+        )
+        fresh, age_minutes = is_fresh_data(
+            measured_at_dt, KMA_STALE_MINUTES
+        )
+        result["measured_at_dt"] = measured_at_dt
+        result["age_minutes"] = age_minutes
+        result["fresh"] = fresh
 
         return result
 
@@ -1235,16 +1313,39 @@ st.sidebar.subheader("실내 측정기")
 arim_result = fetch_arim_dyetec_1()
 
 if arim_result.get("success"):
-    indoor_pm25 = arim_result.get("pm25")
-    indoor_pm10 = arim_result.get("pm10")
-    indoor_temp = arim_result.get("temp")
-    indoor_hum = arim_result.get("humi")
     indoor_time = arim_result.get("measured_at_kst", "자료없음")
     indoor_device_name = arim_result.get("name", "DYETEC #1")
     indoor_sensor_state = arim_result.get("sensor_state", "자료없음")
     indoor_network_state = arim_result.get("network_state", "자료없음")
+    indoor_fresh = arim_result.get("fresh", False)
+    indoor_state_ok = arim_result.get("state_ok", False)
+    indoor_age_minutes = arim_result.get("age_minutes")
 
-    st.sidebar.success(f"아림 조회 성공: {indoor_device_name}")
+    if indoor_fresh and indoor_state_ok:
+        indoor_pm25 = arim_result.get("pm25")
+        indoor_pm10 = arim_result.get("pm10")
+        indoor_temp = arim_result.get("temp")
+        indoor_hum = arim_result.get("humi")
+        st.sidebar.success(f"아림 조회 성공: {indoor_device_name}")
+    else:
+        indoor_pm25 = pd.NA
+        indoor_pm10 = pd.NA
+        indoor_temp = pd.NA
+        indoor_hum = pd.NA
+
+        if not indoor_state_ok:
+            st.sidebar.error(
+                f"측정기 상태 이상: 센서 {indoor_sensor_state} · "
+                f"통신 {indoor_network_state}"
+            )
+        else:
+            age_text = (
+                "측정시각 확인 불가"
+                if indoor_age_minutes is None
+                else f"마지막 수신 후 {indoor_age_minutes:.0f}분 경과"
+            )
+            st.sidebar.error(f"실내자료 갱신 중단: {age_text}")
+
     st.sidebar.write(f"측정시각: {indoor_time}")
     st.sidebar.write(
         f"센서: {indoor_sensor_state} · 통신: {indoor_network_state}"
@@ -1259,6 +1360,9 @@ else:
     indoor_device_name = "DYETEC #1"
     indoor_sensor_state = "자료없음"
     indoor_network_state = "자료없음"
+    indoor_fresh = False
+    indoor_state_ok = False
+    indoor_age_minutes = None
 
     st.sidebar.warning("아림 실내 측정기 자료 조회 불가")
     st.sidebar.write(arim_result.get("error", "알 수 없는 오류"))
@@ -1344,6 +1448,8 @@ if air_result.get("success"):
     outdoor_pm25 = air_result.get("pm25")
     outdoor_pm10 = air_result.get("pm10")
     outdoor_time = air_result.get("data_time", "자료없음")
+    outdoor_fresh = air_result.get("fresh", False)
+    outdoor_age_minutes = air_result.get("age_minutes")
     used_station = air_result.get("station", outdoor_station)
 
     if air_result.get("fallback_used"):
@@ -1359,8 +1465,10 @@ else:
     outdoor_pm10 = pd.NA
     outdoor_time = "자료없음"
     used_station = outdoor_station
+    outdoor_fresh = False
+    outdoor_age_minutes = None
 
-    st.sidebar.warning("AirKorea 자료 임시 조회 불가")
+    st.sidebar.warning("AirKorea 자료 임시 조회 불가 또는 오래된 자료")
     st.sidebar.write(air_result.get("error"))
 
 
@@ -1368,13 +1476,17 @@ st.sidebar.subheader("기상청 외부 기상")
 
 kma_result = fetch_kma_ultra_short_nowcast(KMA_NX, KMA_NY)
 
-if kma_result["success"]:
+if kma_result["success"] and kma_result.get("fresh"):
     st.sidebar.success("기상청 조회 성공")
     st.sidebar.write(f"기준시각: {kma_result.get('base_date')} {kma_result.get('base_time')}")
     st.sidebar.write(f"기온: {kma_result.get('T1H_text')}")
     st.sidebar.write(f"습도: {kma_result.get('REH_text')}")
     st.sidebar.write(f"풍속: {kma_result.get('WSD_text')}")
     st.sidebar.write(f"강수: {kma_result.get('PTY_text')}")
+elif kma_result.get("success"):
+    kma_age = kma_result.get("age_minutes")
+    kma_age_text = "시각 확인 불가" if kma_age is None else f"{kma_age:.0f}분 경과"
+    st.sidebar.warning(f"기상청 자료가 오래되었습니다: {kma_age_text}")
 else:
     st.sidebar.warning("기상청 자료 임시 조회 불가")
     st.sidebar.write(kma_result["error"])
@@ -1444,11 +1556,17 @@ def render_air_card(title, pm25, pm10, grade, info, note):
 
 left_col, right_col = st.columns(2)
 
-indoor_note = (
-    f"<span class='note-line'>온도 {format_air_value(indoor_temp)}℃ · "
-    f"습도 {format_air_value(indoor_hum)}%</span>"
-    f"<span class='note-line'>{indoor_device_name} · {indoor_time} 기준</span>"
-)
+if indoor_fresh and indoor_state_ok:
+    indoor_note = (
+        f"<span class='note-line'>온도 {format_air_value(indoor_temp)}℃ · "
+        f"습도 {format_air_value(indoor_hum)}%</span>"
+        f"<span class='note-line'>{indoor_device_name} · {indoor_time} 기준</span>"
+    )
+else:
+    indoor_note = (
+        f"<span class='note-line'>마지막 수신: {indoor_time}</span>"
+        f"<span class='note-line'>⚠ 측정값이 갱신되지 않아 자료없음으로 처리했습니다.</span>"
+    )
 
 with left_col:
     render_air_card(
@@ -1460,7 +1578,7 @@ with left_col:
         note=indoor_note
     )
 
-if kma_result.get("success"):
+if kma_result.get("success") and kma_result.get("fresh"):
     rain_text = kma_result.get("PTY_text")
 
     if rain_text and rain_text != "없음":
@@ -1585,3 +1703,4 @@ if FEEDBACK_FILE.exists():
     with st.expander("이용자 반응 기록 확인"):
         feedback_df = pd.read_csv(FEEDBACK_FILE, encoding="utf-8-sig")
         st.dataframe(feedback_df.tail(20), width="stretch", hide_index=True)
+        
