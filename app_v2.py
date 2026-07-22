@@ -157,6 +157,137 @@ air_station_locations = {
 def get_kst_now():
     return datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
 
+
+# ============================================================
+# 아림 OA200 실내 측정기 실시간 연동
+# ============================================================
+
+ARIM_LOGIN_URL = "https://monitor.arimair.com/account/login"
+ARIM_REALTIME_URL = "https://monitor.arimair.com/deviceinfo/realtime"
+ARIM_DEVICE_ID = "D0458"
+
+
+@st.cache_data(ttl=60)
+def fetch_arim_dyetec_1():
+    """
+    아림 모니터링 시스템 로그인 후 DYETEC #1(D0458)의
+    최신 실시간 측정값을 조회한다.
+    """
+
+    arim_secret = st.secrets.get("arim", {})
+    user_id = arim_secret.get("user_id", "")
+    password = arim_secret.get("password", "")
+
+    if not user_id or not password:
+        return {
+            "success": False,
+            "error": "Streamlit Secrets에 [arim] user_id/password가 없습니다."
+        }
+
+    try:
+        with requests.Session() as session:
+            login_response = session.post(
+                ARIM_LOGIN_URL,
+                json={
+                    "userType": "admin",
+                    "userId": user_id,
+                    "password": password,
+                },
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "Origin": "https://monitor.arimair.com",
+                    "Referer": "https://monitor.arimair.com/login",
+                },
+                timeout=15,
+            )
+            login_response.raise_for_status()
+
+            realtime_response = session.get(
+                ARIM_REALTIME_URL,
+                headers={
+                    "Accept": "application/json",
+                    "Referer": "https://monitor.arimair.com/monitor/device",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                timeout=15,
+            )
+            realtime_response.raise_for_status()
+
+            records = realtime_response.json()
+
+            if not isinstance(records, list):
+                return {
+                    "success": False,
+                    "error": "아림 실시간 데이터 형식이 예상과 다릅니다."
+                }
+
+            for record in records:
+                if record.get("id") == ARIM_DEVICE_ID:
+                    last_update_raw = record.get("last_update")
+
+                    if last_update_raw:
+                        measured_at = pd.to_datetime(
+                            last_update_raw,
+                            utc=True,
+                            errors="coerce"
+                        )
+
+                        if pd.isna(measured_at):
+                            measured_at_kst = "자료없음"
+                        else:
+                            measured_at_kst = (
+                                measured_at
+                                .tz_convert("Asia/Seoul")
+                                .strftime("%Y-%m-%d %H:%M:%S")
+                            )
+                    else:
+                        measured_at_kst = "자료없음"
+
+                    return {
+                        "success": True,
+                        "id": record.get("id"),
+                        "name": record.get("name", "DYETEC #1"),
+                        "pm25": pd.to_numeric(record.get("pm25"), errors="coerce"),
+                        "pm10": pd.to_numeric(record.get("pm10"), errors="coerce"),
+                        "temp": pd.to_numeric(record.get("temp"), errors="coerce"),
+                        "humi": pd.to_numeric(record.get("humi"), errors="coerce"),
+                        "voc": pd.to_numeric(record.get("voc"), errors="coerce"),
+                        "measured_at_kst": measured_at_kst,
+                        "sensor_state": record.get("sensor_state", "자료없음"),
+                        "network_state": record.get("network_state", "자료없음"),
+                    }
+
+            return {
+                "success": False,
+                "error": f"DYETEC #1 측정기({ARIM_DEVICE_ID})를 찾지 못했습니다."
+            }
+
+    except requests.Timeout:
+        return {
+            "success": False,
+            "error": "아림 측정기 서버 응답이 지연되고 있습니다."
+        }
+
+    except requests.RequestException as e:
+        return {
+            "success": False,
+            "error": f"아림 측정기 통신 오류: {e}"
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"아림 측정기 데이터 처리 오류: {e}"
+        }
+
+
+def format_air_value(value, decimal=1):
+    """결측값은 '자료없음', 숫자는 지정 소수점으로 표시."""
+    if pd.isna(value):
+        return "자료없음"
+    return f"{float(value):.{decimal}f}"
+
 @st.cache_data(ttl=1200)
 def fetch_airkorea_realtime(station_name):
     """
@@ -1096,15 +1227,41 @@ if st.sidebar.button("외부자료 새로고침", width="stretch"):
 
 
 # ------------------------------------------------------------
-# 5-1. 실내 샘플값
+# 5-1. 아림 실내 측정기
 # ------------------------------------------------------------
 
-st.sidebar.subheader("실내 샘플값")
+st.sidebar.subheader("실내 측정기")
 
-indoor_pm25 = st.sidebar.slider("실내 PM2.5 (µg/m³)", 0, 150, 13)
-indoor_pm10 = st.sidebar.slider("실내 PM10 (µg/m³)", 0, 250, 14)
-indoor_temp = st.sidebar.slider("실내 온도 (℃)", 0.0, 40.0, 24.5, 0.1)
-indoor_hum = st.sidebar.slider("실내 습도 (%)", 0.0, 100.0, 55.0, 0.1)
+arim_result = fetch_arim_dyetec_1()
+
+if arim_result.get("success"):
+    indoor_pm25 = arim_result.get("pm25")
+    indoor_pm10 = arim_result.get("pm10")
+    indoor_temp = arim_result.get("temp")
+    indoor_hum = arim_result.get("humi")
+    indoor_time = arim_result.get("measured_at_kst", "자료없음")
+    indoor_device_name = arim_result.get("name", "DYETEC #1")
+    indoor_sensor_state = arim_result.get("sensor_state", "자료없음")
+    indoor_network_state = arim_result.get("network_state", "자료없음")
+
+    st.sidebar.success(f"아림 조회 성공: {indoor_device_name}")
+    st.sidebar.write(f"측정시각: {indoor_time}")
+    st.sidebar.write(
+        f"센서: {indoor_sensor_state} · 통신: {indoor_network_state}"
+    )
+
+else:
+    indoor_pm25 = pd.NA
+    indoor_pm10 = pd.NA
+    indoor_temp = pd.NA
+    indoor_hum = pd.NA
+    indoor_time = "자료없음"
+    indoor_device_name = "DYETEC #1"
+    indoor_sensor_state = "자료없음"
+    indoor_network_state = "자료없음"
+
+    st.sidebar.warning("아림 실내 측정기 자료 조회 불가")
+    st.sidebar.write(arim_result.get("error", "알 수 없는 오류"))
 
 
 # ------------------------------------------------------------
@@ -1269,12 +1426,12 @@ def render_air_card(title, pm25, pm10, grade, info, note):
         f'<div class="value-row">'
         f'<div class="value-box">'
         f'<div class="value-label">초미세먼지 PM2.5</div>'
-        f'<div class="value-number">{pm25}</div>'
+        f'<div class="value-number">{format_air_value(pm25)}</div>'
         f'<div class="value-unit">µg/m³</div>'
         f'</div>'
         f'<div class="value-box">'
         f'<div class="value-label">미세먼지 PM10</div>'
-        f'<div class="value-number">{pm10}</div>'
+        f'<div class="value-number">{format_air_value(pm10)}</div>'
         f'<div class="value-unit">µg/m³</div>'
         f'</div>'
         f'</div>'
@@ -1288,8 +1445,9 @@ def render_air_card(title, pm25, pm10, grade, info, note):
 left_col, right_col = st.columns(2)
 
 indoor_note = (
-    f"<span class='note-line'>온도 {indoor_temp:.1f}℃ · 습도 {indoor_hum:.1f}%</span>"
-    f"<span class='note-line'>간이측정기 샘플값</span>"
+    f"<span class='note-line'>온도 {format_air_value(indoor_temp)}℃ · "
+    f"습도 {format_air_value(indoor_hum)}%</span>"
+    f"<span class='note-line'>{indoor_device_name} · {indoor_time} 기준</span>"
 )
 
 with left_col:
@@ -1419,7 +1577,7 @@ with btn3:
 
 with st.expander("향후 연동 구조"):
     st.markdown("""
-    - 장비 설치 후: 실내 간이측정기 CSV, DB, API, IoT 수집 방식 중 하나로 연결
+    - 실내자료: 아림 OA200 실시간 API 연동(DYETEC #1, D0458)
     - 현장 적용: 키오스크, 태블릿, 스탠바이미 화면에 전체화면으로 띄우는 방식 검토
     """)
 
@@ -1427,4 +1585,3 @@ if FEEDBACK_FILE.exists():
     with st.expander("이용자 반응 기록 확인"):
         feedback_df = pd.read_csv(FEEDBACK_FILE, encoding="utf-8-sig")
         st.dataframe(feedback_df.tail(20), width="stretch", hide_index=True)
-        
