@@ -203,7 +203,7 @@ def is_fresh_data(measured_at, stale_minutes):
 
 ARIM_LOGIN_URL = "https://monitor.arimair.com/account/login"
 ARIM_REALTIME_URL = "https://monitor.arimair.com/deviceinfo/realtime"
-ARIM_DEVICE_ID = "D0458"
+ARIM_DEVICE_ID = "D0459"
 
 
 @st.cache_data(ttl=60)
@@ -314,7 +314,7 @@ def fetch_arim_dyetec_1():
 
             return {
                 "success": False,
-                "error": f"DYETEC #1 측정기({ARIM_DEVICE_ID})를 찾지 못했습니다."
+                "error": f"DYETEC #2 측정기({ARIM_DEVICE_ID})를 찾지 못했습니다."
             }
 
     except requests.Timeout:
