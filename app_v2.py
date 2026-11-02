@@ -38,6 +38,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+from kweather_iaq240 import render_childcare_page, render_in_main_demo
+
+if st.query_params.get("view") == "childcare":
+    render_childcare_page()
+    st.stop()
+
 KST = timezone(timedelta(hours=9))
 
 # 자료 신선도 판정 기준
@@ -1704,3 +1710,4 @@ if FEEDBACK_FILE.exists():
         feedback_df = pd.read_csv(FEEDBACK_FILE, encoding="utf-8-sig")
         st.dataframe(feedback_df.tail(20), width="stretch", hide_index=True)
         
+render_in_main_demo()
