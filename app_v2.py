@@ -1305,9 +1305,6 @@ st.markdown(
 
 st.sidebar.header("2차 데모 설정")
 
-if st.sidebar.button("외부자료 새로고침", width="stretch"):
-    st.cache_data.clear()
-    st.sidebar.success("외부자료를 새로 조회했습니다.")
 
 
 # ------------------------------------------------------------
