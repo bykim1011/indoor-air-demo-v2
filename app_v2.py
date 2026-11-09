@@ -362,7 +362,7 @@ def fetch_airkorea_realtime(station_name):
             "error": "AIRKOREA_SERVICE_KEY가 secrets.toml에 없습니다."
         }
 
-    url = "http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty"
+    url = "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty"
 
     params = {
         "serviceKey": service_key,
