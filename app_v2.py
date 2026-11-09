@@ -1672,24 +1672,48 @@ st.markdown(
 # 11. 이용자 반응 버튼
 # ============================================================
 
-st.markdown('<div class="feedback-title">현재 안내가 체감과 맞나요?</div>', unsafe_allow_html=True)
+
+# 이용자 반응: 접속 세션당 1회 제출
+if "feedback_submitted" not in st.session_state:
+    st.session_state["feedback_submitted"] = False
+
+def submit_feedback_once(answer):
+    if st.session_state["feedback_submitted"]:
+        return
+
+    save_feedback(
+        answer,
+        indoor_pm25, indoor_pm10,
+        outdoor_pm25, outdoor_pm10,
+        indoor_grade, outdoor_grade
+    )
+    st.session_state["feedback_submitted"] = True
+
+st.markdown(
+    '<div class="feedback-title">현재 안내가 체감과 맞나요?</div>',
+    unsafe_allow_html=True
+)
 
 btn1, btn2, btn3 = st.columns(3)
 
 with btn1:
-    if st.button("👍 좋아요", width="stretch"):
-        save_feedback("좋아요", indoor_pm25, indoor_pm10, outdoor_pm25, outdoor_pm10, indoor_grade, outdoor_grade)
-        st.success("반응이 저장되었습니다.")
+    if st.button("👍 좋아요", width="stretch",
+                 disabled=st.session_state["feedback_submitted"]):
+        submit_feedback_once("좋아요")
 
 with btn2:
-    if st.button("😐 보통이에요", width="stretch"):
-        save_feedback("보통이에요", indoor_pm25, indoor_pm10, outdoor_pm25, outdoor_pm10, indoor_grade, outdoor_grade)
-        st.success("반응이 저장되었습니다.")
+    if st.button("😐 보통이에요", width="stretch",
+                 disabled=st.session_state["feedback_submitted"]):
+        submit_feedback_once("보통이에요")
 
 with btn3:
-    if st.button("🙁 불편해요", width="stretch"):
-        save_feedback("불편해요", indoor_pm25, indoor_pm10, outdoor_pm25, outdoor_pm10, indoor_grade, outdoor_grade)
-        st.warning("반응이 저장되었습니다.")
+    if st.button("🙁 불편해요", width="stretch",
+                 disabled=st.session_state["feedback_submitted"]):
+        submit_feedback_once("불편해요")
+
+if st.session_state["feedback_submitted"]:
+    st.success("의견이 접수되었습니다. 감사합니다.")
+
 
 
 # ============================================================
