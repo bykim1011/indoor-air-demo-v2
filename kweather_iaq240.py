@@ -585,11 +585,4 @@ def render_childcare_page():
     )
     _childcare_dashboard_fragment()
 
-def render_in_main_demo():
-    st.divider()
-    with st.expander("케이웨더 IAQ-CW 240번 · 공식 API 최신값 시험", expanded=True):
-        st.info("현재는 어린이집 설치 예정 장비의 단독 실시간 API 시험입니다. 위 평리3동/아림 자료와 합산하거나 혼용하지 않습니다.")
-        # Do not use a timed fragment inside an externally created expander.
-        # The separate QR page uses automatic 3-minute refreshing.
-        _render_values()
-        st.caption("QR 단독 화면: 배포된 웹데모 주소 뒤에 `?view=childcare`를 붙여 접속하세요.")
+
