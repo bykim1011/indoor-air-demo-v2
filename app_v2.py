@@ -689,7 +689,7 @@ def fetch_kma_ultra_short_nowcast(nx=89, ny=90):
 
     base_date, base_time = get_kma_base_datetime()
 
-    url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
+    url = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
 
     params = {
         "serviceKey": service_key,
