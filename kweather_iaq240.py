@@ -206,41 +206,6 @@ def _grade(pm25, pm10):
     return ("좋음", "보통", "나쁨", "매우나쁨")[max(grades)] if grades else "자료없음"
 
 
-def _render_values():
-    response, cfg = get_current_reading()
-    st.caption(f"측정기 {SERIAL} · {cfg['display_location']}")
-    if response["error"]:
-        st.warning(response["error"])
-        return
-    rec = response["record"]
-    fresh, minutes, reason = validate_freshness(rec)
-    if not fresh:
-        st.error(reason)
-        if rec["measured_at"] is not None:
-            st.caption(f"최종 수신 측정시각: {rec['measured_at']:%Y-%m-%d %H:%M} KST")
-        return
-    st.success(f"정상 수신 · 측정시각 {rec['measured_at']:%Y-%m-%d %H:%M} KST · 약 {max(0, minutes):.1f}분 전")
-    st.subheader(f"실내 미세먼지 상태: {_grade(rec['pm25'], rec['pm10'])}")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric("초미세먼지 PM2.5", _value(rec, "pm25", " µg/m³"))
-        st.metric("온도", _value(rec, "temp", " ℃", 1))
-        st.metric("CO₂", _value(rec, "co2", " ppm"))
-        st.metric("VOCs", _value(rec, "voc", " ppb"))
-    with c2:
-        st.metric("미세먼지 PM10", _value(rec, "pm10", " µg/m³"))
-        st.metric("습도", _value(rec, "humi", " %"))
-        st.metric("소음", _value(rec, "noise", " dB"))
-    st.caption("자료 출처: 케이웨더 Air365 최신 측정자료 API. 측정값은 인증·교정된 기준측정망 자료가 아닙니다.")
-
-
-if hasattr(st, "fragment"):
-    # Browser display updates automatically; calls are cached across sessions.
-    render_live_reading = st.fragment(run_every="180s")(_render_values)
-else:
-    render_live_reading = _render_values
-
-
 def _to_valid_pm(raw):
     """Normalize AirKorea PM numeric values, allowing missing markers."""
     if raw is None or str(raw).strip() in ("", "-", "None", "null"):
