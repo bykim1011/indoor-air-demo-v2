@@ -1704,10 +1704,5 @@ with st.expander("향후 연동 구조"):
     - 실내자료: 아림 OA200 실시간 API 연동(DYETEC #1, D0458)
     - 현장 적용: 키오스크, 태블릿, 스탠바이미 화면에 전체화면으로 띄우는 방식 검토
     """)
-
-if FEEDBACK_FILE.exists():
-    with st.expander("이용자 반응 기록 확인"):
-        feedback_df = pd.read_csv(FEEDBACK_FILE, encoding="utf-8-sig")
-        st.dataframe(feedback_df.tail(20), width="stretch", hide_index=True)
-        
+      
 render_in_main_demo()
