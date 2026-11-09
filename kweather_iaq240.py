@@ -265,7 +265,7 @@ def _parse_airkorea_datetime(text):
 @st.cache_data(ttl=AIRKOREA_TTL_SECONDS, show_spinner=False)
 def _fetch_suchang_airkorea(service_key):
     """Only Suchang-dong is eligible; no substitution by another station."""
-    url = "http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty"
+    url = "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty"
     params = {"serviceKey": service_key, "returnType": "json", "numOfRows": 1,
               "pageNo": 1, "stationName": AIRKOREA_STATION, "dataTerm": "DAILY", "ver": "1.3"}
     try:
