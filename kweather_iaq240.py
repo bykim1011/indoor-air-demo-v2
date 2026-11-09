@@ -251,45 +251,6 @@ def _fetch_suchang_airkorea(service_key):
     except (requests.RequestException, ValueError, TypeError):
         return {"error": "에어코리아 측정자료를 조회하지 못했습니다.", "record": None}
 
-
-def _render_outdoor_values():
-    st.caption(f"{AIRKOREA_STATION_DESCRIPTION} · 어린이집 현장의 직접 측정값이 아닌 인근 대표 측정자료")
-    try:
-        service_key = str(st.secrets.get("AIRKOREA_SERVICE_KEY", "")).strip()
-    except Exception:
-        service_key = ""
-    if not service_key:
-        st.info("에어코리아 API 인증키(AIRKOREA_SERVICE_KEY)가 설정되지 않았습니다.")
-        return
-    response = _fetch_suchang_airkorea(service_key)
-    if response["error"]:
-        st.warning(response["error"])
-        return
-    rec = response["record"]
-    at = rec.get("measured_at")
-    if at is None:
-        st.warning("수창동 측정소 측정시각을 확인할 수 없습니다.")
-        return
-    age = (datetime.now(KST) - at).total_seconds() / 60
-    if age < -3 or age > AIRKOREA_STALE_MINUTES:
-        st.warning(f"수창동 실외 측정값이 갱신되지 않았습니다. 최종시각: {at:%Y-%m-%d %H:%M} KST")
-        return
-    st.caption(f"수창동 실외 측정시각: {at:%Y-%m-%d %H:%M} KST")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric("실외 PM2.5", _value(rec, "pm25", " µg/m³"))
-    with c2:
-        st.metric("실외 PM10", _value(rec, "pm10", " µg/m³"))
-    st.caption("출처: 에어코리아 도시대기측정망. 실내 측정값과 측정 위치·장비·시각이 다를 수 있습니다.")
-
-
-if hasattr(st, "fragment"):
-    render_outdoor_reading = st.fragment(run_every="180s")(_render_outdoor_values)
-else:
-    render_outdoor_reading = _render_outdoor_values
-
-
-
 # ============================================================
 # 도원센트럴어린이집 QR용 카드형 대시보드
 # 기존 app_v2.py의 아림/기상청/이용자 반응 페이지와 독립적으로 동작
